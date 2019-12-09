@@ -16,13 +16,21 @@ const char* password = "12345678";
 // Change the variable to your Raspberry Pi IP address, so it connects to your MQTT broker
 const char* mqtt_server = "192.168.43.17";
 
+
+//Initializing the Pins for the sensor
+int pH_sensor = D0;
+int DO_sensor = D1;
+int Conductivity_sensor = D2;
+int sensor_input = A0;
+
+int sensors[] = {pH_sensor, DO_sensor, Conductivity_sensor};
+
 // Initializes the espClient
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Connect an LED to each GPIO of your ESP8266
-const int ledGPIO5 = 5;
-const int ledGPIO4 = 4;
+
+
 
 // Don't change the function below. This functions connects your ESP8266 to your router
 void setup_wifi() {
@@ -56,44 +64,39 @@ void callback(String topic, byte* message, unsigned int length) {
   }
   Serial.println();
 
-  // Feel free to add more if statements to control more GPIOs with MQTT
 
-  // If a message is received on the topic home/office/esp1/gpio2, you check if the message is either 1 or 0. Turns the ESP GPIO according to the message
-  if (topic == "esp8266")
-  {
-    // client.publish("Sensor_Values",messageTemp),true;
-    Serial.print("Changing GPIO 4 to ");
-    Serial.println(messageTemp);
-    if (messageTemp == "1") {
-      digitalWrite(ledGPIO4, HIGH);
-      Serial.print("On");
-    }
-    else if (messageTemp == "0") {
-      digitalWrite(ledGPIO4, LOW);
-      Serial.print("Off");
-    }
-  }
   if (topic == "Sensor_Read_Request")
 
   {
     Serial.print("Raspberry Pi has pubished: ");
     Serial.println(messageTemp);
+    float result;
+    String str = "";
+    for (int i = 0; i <= 2; ++i)
+    {
+      char buf[10];
+
+      result = Read_sensor(sensors[i]);
+      dtostrf(result, 4, 4, buf);
+      str += buf;
+      str += ",";
+
+    }
 
 
-    /*
+    /* String sensor_string = "Ph,DO,Conductivity Values!";
 
-      READ SENSOR VALUES AND PUBLISH IT TO THE RASPBERRY PI
-
+      unsigned int sensor_result_length = sensor_string.length();
+      byte sensor_result[sensor_result_length];
+      sensor_string.getBytes(sensor_result, sensor_result_length);
+      client.publish("Sensor_values", sensor_result, sensor_result_length);
+      Serial.println(sensor_string);
     */
-
-    String sensor_string = "Ph,DO,Conductivity Values!";
-
-    unsigned int sensor_result_length = sensor_string.length();
+    unsigned int sensor_result_length = str.length();
     byte sensor_result[sensor_result_length];
-    sensor_string.getBytes(sensor_result, sensor_result_length);
+    str.getBytes(sensor_result, sensor_result_length);
     client.publish("Sensor_values", sensor_result, sensor_result_length);
-    Serial.println(sensor_string);
-
+    Serial.println(str);
   }
 
 
@@ -120,15 +123,17 @@ void reconnect() {
 
       THE SECTION IN loop() function should match your device name
     */
-    if (client.connect("ESP8266Client")) {
+    if (client.connect("ESP8266Client"))
+    {
       Serial.println("connected");
       // Subscribe or resubscribe to a topic
-      // You can subscribe to more topics (to control more LEDs in this example)
-      client.subscribe("esp8266");
-      client.subscribe("Sensor_Read_Request");
-     // client.subscribe("Actuation");
 
-    } else {
+      client.subscribe("Sensor_Read_Request");
+
+
+    }
+    else
+    {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -142,11 +147,14 @@ void reconnect() {
 // Sets your mqtt broker and sets the callback function
 // The callback function is what receives messages and actually controls the LEDs
 void setup() {
-  pinMode(ledGPIO4, OUTPUT);
-  pinMode(ledGPIO5, OUTPUT);
 
+  pinMode(pH_sensor, OUTPUT);
+  pinMode(DO_sensor, OUTPUT);
+  pinMode(Conductivity_sensor, OUTPUT);
+  pinMode(sensor_input, INPUT);
   Serial.begin(115200);
   setup_wifi();
+
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 }
@@ -173,3 +181,18 @@ void loop() {
     */
     client.connect("ESP8266Client");
 }
+
+
+
+float Read_sensor(int pin)
+{
+
+  digitalWrite(pin, HIGH);
+  delay(2000);
+  int sensor_value = analogRead(sensor_input);
+  Serial.println(sensor_value);
+  digitalWrite(pin, LOW);
+  return sensor_value;
+
+}
+
