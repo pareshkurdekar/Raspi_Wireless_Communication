@@ -86,7 +86,7 @@ void callback(String topic, byte* message, unsigned int length) {
 
     */
 
-    String sensor_string = "HELP!";
+    String sensor_string = "Ph,DO,Conductivity Values!";
 
     unsigned int sensor_result_length = sensor_string.length();
     byte sensor_result[sensor_result_length];
@@ -126,7 +126,7 @@ void reconnect() {
       // You can subscribe to more topics (to control more LEDs in this example)
       client.subscribe("esp8266");
       client.subscribe("Sensor_Read_Request");
-      client.subscribe("Actuation");
+     // client.subscribe("Actuation");
 
     } else {
       Serial.print("failed, rc=");
