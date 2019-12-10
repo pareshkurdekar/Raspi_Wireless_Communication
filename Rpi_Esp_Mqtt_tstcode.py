@@ -31,13 +31,16 @@ def on_message(client, userdata, msg):
 
 #Master_subnode.connect(host,port,60)
 
+
 def diff_sensor(s):
-    temp_list = list(s)
+    temp_list = s.split(",")
+    temp_list[2] = temp_list[2].replace('\x00','')
+    #print(temp_list)
     global sensor_value_list
-    for i in range(0,len(s)):
-        if s[i] is ",":
-            sensor_value_list += s[i - 1]
-    print(sensor_value_list)        
+    for i in range(0,3):
+        sensor_value_list.append(float(temp_list[i]))
+
+    print(sensor_value_list)
 
 
 Master_subnode.on_connect = on_connect
