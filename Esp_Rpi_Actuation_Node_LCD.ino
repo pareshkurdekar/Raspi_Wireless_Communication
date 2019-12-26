@@ -17,22 +17,24 @@ const char* ssid = "JioFi3_Basil";
 const char* password = "12345679";
 
 // Change the variable to your Raspberry Pi IP address, so it connects to your MQTT broker
-const char* mqtt_server = "192.168.225.239";
+const char* mqtt_server = "192.168.225.186";
+
+
+//Initializing the Pins for the sensor
+int pH_sensor = D8;
+int DO_sensor = D7;
+int Conductivity_sensor = D6;
+int sensor_input = A0;
+
+int sensors[] = {pH_sensor, DO_sensor, Conductivity_sensor};
 
 // Initializes the espClient
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Connect an LED to each GPIO of your ESP8266
-int relay_1 = D5;
-int relay_2 = D4;
-int relay_3 = D3;
-int relay_4 = D0;
-int relay_out[4];  //value from Rpi
 
-byte actuation_result[4];
 
-int relay_pos[] = {relay_1, relay_2, relay_3, relay_4};
+
 // Don't change the function below. This functions connects your ESP8266 to your router
 void setup_wifi() {
   delay(10);
@@ -62,7 +64,7 @@ void setup_wifi() {
 
   delay(1000);
 
-  Serial.println("");
+  //Serial.println("");
   Serial.print("WiFi connected - ESP IP address: ");
   Serial.println(WiFi.localIP());
   lcd.setCursor(0, 0);
@@ -78,78 +80,76 @@ void setup_wifi() {
 void callback(String topic, byte* message, unsigned int length) {
   lcd.clear();
   Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
+ Serial.print(topic);
 
   lcd.setCursor(0, 0);
   lcd.print("Topic: ");
       
   lcd.setCursor(6, 0);
-  lcd.print(topic);
+  //lcd.print("");
   
   Serial.print(". Message: ");
-  Serial.print("length"); Serial.println(length);
+  //Serial.print("length"); //Serial.println(length);
   String messageTemp;
 
   for (int i = 0; i < length; i++) {
-    Serial.print((char)message[i]);
+    //Serial.print((char)message[i]);
     messageTemp += (char)message[i];// your ESP8266 is subscribed you can actually do something
-    relay_out[i] = message[i] - '0' ;
+
   }
   Serial.println();
 
-  // Feel free to add more if statements to control more GPIOs with MQTT
 
-  // If a message is received on the topic home/office/esp1/gpio2, you check if the message is either 1 or 0. Turns the ESP GPIO according to the message
-  if (topic == "Actuation")
+  if (topic == "node_1/sensor_subnode1/sensor_read")
 
   {
-
-    Serial.print("Raspberry Pi has published: ");
-    Serial.println(messageTemp);
-
-    lcd.setCursor(6, 1);
+    lcd.setCursor(6, 0);
+    lcd.print("Read_Req");
+ 
+    lcd.setCursor(7,1);
     lcd.print(messageTemp);
-
-    for (int i = 0; i < length; ++i)
+    
+    Serial.print("Raspberry Pi has pubished: ");
+ Serial.println(messageTemp);
+    float result;
+    String str = "";
+    for (int i = 0; i <= 2; ++i)
     {
-      //   Serial.println(relay_out[i]);
-      relay_output(i, relay_out[i]);
-      delay(100);
+      char buf[10];
+
+      result = Read_sensor(sensors[i]);
+      dtostrf(result, 4, 2, buf);
+      str += buf;
+      str += ",";
+
     }
 
-    /*
 
-      READ SENSOR VALUES AND PUBLISH IT TO THE RASPBERRY PI
+    /* String sensor_string = "Ph,DO,Conductivity Values!";
 
+      unsigned int sensor_result_length = sensor_string.length();
+      byte sensor_result[sensor_result_length];
+      sensor_string.getBytes(sensor_result, sensor_result_length);
+      client.publish("Sensor_values", sensor_result, sensor_result_length);
+      //Serial.println(sensor_string);
     */
-    delay(3000);
-
-    /*String actuation_string = "Relay Signals!";
-
-      unsigned int actuation_result_length = actuation_string.length();
-      byte actuation_result[actuation_result_length];
-      actuation_string.getBytes(actuation_result, actuation_result_length);
-      client.publish("Actuation_ACK", actuation_result, actuation_result_length);
-    */
-
-    //Serial.println(actuation_string);
-
-    for (int i = 0; i <= length; ++i)
-    {
-      actuation_result[i] = digitalRead(relay_pos[i]);
-
-    }
-    client.publish("Actuation_ACK", actuation_result, length);
-
+    unsigned int sensor_result_length = str.length();
+    byte sensor_result[sensor_result_length];
+    str.getBytes(sensor_result, sensor_result_length);
+    client.publish("node_1/sensor_subnode1/sensor_values", sensor_result, sensor_result_length);
+   // //Serial.println(str);
+    
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("ACK Published");
+    lcd.print(" Published");
+    lcd.setCursor(0, 1);
+    lcd.print(str);
 
+  
   }
 
 
-
-  Serial.println();
+  //Serial.println();
 }
 
 // This functions reconnects your ESP8266 to your MQTT broker
@@ -166,7 +166,7 @@ void reconnect() {
       YOU  NEED TO CHANGE THIS NEXT LINE, IF YOU'RE HAVING PROBLEMS WITH MQTT MULTIPLE CONNECTIONS
       To change the ESP device ID, you will have to give a unique name to the ESP8266.
       Here's how it looks like now:
-      if (client.connect("ESP8266Act")) {
+      if (client.connect("ESP8266Sens")) {
       If you want more devices connected to the MQTT broker, you can do it like this:
       if (client.connect("ESPOffice")) {
       Then, for the other ESP:
@@ -175,7 +175,7 @@ void reconnect() {
 
       THE SECTION IN loop() function should match your device name
     */
-    if (client.connect("ESP8266Act")) {
+    if (client.connect("ESP8266Sens")) {
       Serial.println("connected");
 
       lcd.setCursor(0, 1);
@@ -183,36 +183,37 @@ void reconnect() {
       // Subscribe or resubscribe to a topic
       // You can subscribe to more topics (to control more LEDs in this example)
       //   client.subscribe("esp8266");
-      //   client.subscribe("Sensor_Read_Request");
-      client.subscribe("Actuation");
+         client.subscribe("node_1/sensor_subnode1/sensor_read");
+      //client.subscribe("Actuation");
 
     } else {
       Serial.print("failed, rc=");
       lcd.setCursor(0, 1);
       lcd.print("Failed!");
-      Serial.print(client.state());
+   Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
     }
   }
 }
-
 // The setup function sets your ESP GPIOs to Outputs, starts the serial communication at a baud rate of 115200
 // Sets your mqtt broker and sets the callback function
 // The callback function is what receives messages and actually controls the LEDs
 void setup() {
 
-  pinMode(relay_1, OUTPUT);
-  pinMode(relay_2, OUTPUT);
-  pinMode(relay_3, OUTPUT);
-  pinMode(relay_4, OUTPUT);
-
+  pinMode(pH_sensor, OUTPUT);
+  pinMode(DO_sensor, OUTPUT);
+  pinMode(Conductivity_sensor, OUTPUT);
+  pinMode(sensor_input, INPUT);
+  digitalWrite(pH_sensor,LOW);
+  digitalWrite(DO_sensor,LOW);
+  digitalWrite(Conductivity_sensor,LOW);
+  
   lcd.init();                      // initialize the lcd
   lcd.backlight();
-
+  
   Serial.begin(115200);
-
   setup_wifi();
 
   client.setServer(mqtt_server, 1883);
@@ -230,7 +231,7 @@ void loop() {
       YOU  NEED TO CHANGE THIS NEXT LINE, IF YOU'RE HAVING PROBLEMS WITH MQTT MULTIPLE CONNECTIONS
       To change the ESP device ID, you will have to give a unique name to the ESP8266.
       Here's how it looks like now:
-      client.connect("ESP8266Act");
+      client.connect("ESP8266Client");
       If you want more devices connected to the MQTT broker, you can do it like this:
       client.connect("ESPOffice");
       Then, for the other ESP:
@@ -239,14 +240,19 @@ void loop() {
 
       THE SECTION IN recionnect() function should match your device name
     */
-    client.connect("ESP8266Act");
+    client.connect("ESP8266Client");
 }
 
 
 
-void relay_output(int pos, int val)
+float Read_sensor(int pin)
 {
-  digitalWrite(relay_pos[pos], val);
-  Serial.print(digitalRead(relay_pos[pos])); Serial.print("  "); Serial.println(val);
+
+  digitalWrite(pin, HIGH);
+  delay(2000);
+  int sensor_value = analogRead(sensor_input);
+  Serial.println(sensor_value);
+  digitalWrite(pin, LOW);
+  return sensor_value;
 
 }
